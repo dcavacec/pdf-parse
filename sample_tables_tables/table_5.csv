@@ -1,0 +1,7 @@
+0,1,2,3,4,5
+Employee ID,Name,Department,Position,Salary,Start Date
+EMP001,John Smith,Engineering,Senior Developer,"$85,000",2020-01-15
+EMP002,Jane Doe,Marketing,Marketing Manager,"$75,000",2019-03-22
+EMP003,Bob Johnson,Sales,Sales Representative,"$60,000",2021-06-10
+EMP004,Alice Brown,HR,HR Specialist,"$65,000",2020-09-05
+EMP005,Charlie Wilson,Engineering,Junior Developer,"$55,000",2022-02-14

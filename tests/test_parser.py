@@ -30,15 +30,15 @@ class TestPDFParser:
         with pytest.raises(FileNotFoundError):
             parser.parse_pdf("nonexistent.pdf")
     
-    @patch('pdf_parse.parser.PyPDF2')
-    def test_parse_pdf_from_bytes(self, mock_pypdf2):
+    @patch('pdf_parse.parser.pypdf')
+    def test_parse_pdf_from_bytes(self, mock_pypdf):
         """Test parsing PDF from bytes."""
-        # Mock PyPDF2 components
+        # Mock pypdf components
         mock_reader = Mock()
         mock_page = Mock()
         mock_page.extract_text.return_value = "Header1\tHeader2\nValue1\tValue2\nValue3\tValue4"
         mock_reader.pages = [mock_page]
-        mock_pypdf2.PdfReader.return_value = mock_reader
+        mock_pypdf.PdfReader.return_value = mock_reader
         
         parser = PDFParser()
         pdf_bytes = b"fake pdf content"
@@ -50,17 +50,17 @@ class TestPDFParser:
         assert table.row_count == 3  # Header + 2 data rows
         assert table.column_count == 2
     
-    @patch('pdf_parse.parser.PyPDF2')
-    def test_parse_pdf_with_page_range(self, mock_pypdf2):
+    @patch('pdf_parse.parser.pypdf')
+    def test_parse_pdf_with_page_range(self, mock_pypdf):
         """Test parsing PDF with specific page range."""
-        # Mock PyPDF2 components
+        # Mock pypdf components
         mock_reader = Mock()
         mock_page1 = Mock()
         mock_page1.extract_text.return_value = "Page1\tData\nValue1\tValue2"
         mock_page2 = Mock()
         mock_page2.extract_text.return_value = "Page2\tData\nValue3\tValue4"
         mock_reader.pages = [mock_page1, mock_page2]
-        mock_pypdf2.PdfReader.return_value = mock_reader
+        mock_pypdf.PdfReader.return_value = mock_reader
         
         config = ParseConfig(page_range=(1, 1))  # Only first page
         parser = PDFParser(config=config)

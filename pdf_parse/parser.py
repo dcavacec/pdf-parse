@@ -7,9 +7,9 @@ from typing import List, Optional, Union
 from pathlib import Path
 
 try:
-    import PyPDF2
+    import pypdf
 except ImportError:
-    PyPDF2 = None
+    pypdf = None
 
 from .table import Table
 from .config import ParseConfig
@@ -35,10 +35,10 @@ class PDFParser:
         Args:
             config: Optional configuration object for parsing options
         """
-        if PyPDF2 is None:
+        if pypdf is None:
             raise ImportError(
-                "PyPDF2 is required but not installed. "
-                "Install it with: pip install PyPDF2"
+                "pypdf is required but not installed. "
+                "Install it with: pip install pypdf"
             )
         
         self.config = config or ParseConfig()
@@ -82,17 +82,17 @@ class PDFParser:
             PDFParseError: If parsing fails
         """
         try:
-            pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+            pdf_reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
             return self._extract_tables_from_pdf(pdf_reader)
         except Exception as e:
             raise PDFParseError(f"Failed to parse PDF from bytes: {str(e)}")
     
     def _extract_tables_from_pdf(self, pdf_reader) -> List[Table]:
         """
-        Extract tables from a PyPDF2 PdfReader object.
+        Extract tables from a pypdf PdfReader object.
         
         Args:
-            pdf_reader: PyPDF2 PdfReader object
+            pdf_reader: pypdf PdfReader object
             
         Returns:
             List of Table objects
@@ -123,7 +123,7 @@ class PDFParser:
         Extract tables from a single PDF page.
         
         Args:
-            page: PyPDF2 page object
+            page: pypdf page object
             page_num: Page number (1-based)
             
         Returns:

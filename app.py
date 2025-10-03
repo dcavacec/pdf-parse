@@ -96,62 +96,192 @@ def main():
                 pages = None
     
     # File upload
-    st.subheader("📁 Upload PDF File")
-    uploaded_file = st.file_uploader(
-        "Choose a PDF file",
-        type=['pdf'],
-        help="Upload a PDF file containing tabular data"
+    st.subheader("📁 Upload PDF Files")
+    
+    # Upload type selection
+    upload_type = st.radio(
+        "Select upload type:",
+        ["Single PDF File", "Multiple PDF Files"],
+        help="Choose whether to upload a single PDF or multiple PDFs"
     )
     
-    if uploaded_file is not None:
+    if upload_type == "Single PDF File":
+        uploaded_files = st.file_uploader(
+            "Choose a PDF file",
+            type=['pdf'],
+            help="Upload a PDF file containing tabular data"
+        )
+        if uploaded_files:
+            uploaded_files = [uploaded_files]  # Convert to list for consistency
+    else:
+        uploaded_files = st.file_uploader(
+            "Choose PDF files",
+            type=['pdf'],
+            accept_multiple_files=True,
+            help="Upload multiple PDF files containing tabular data"
+        )
+    
+    if uploaded_files is not None and len(uploaded_files) > 0:
         # Display file info
-        st.info(f"📄 **File:** {uploaded_file.name} | **Size:** {uploaded_file.size:,} bytes")
+        if len(uploaded_files) == 1:
+            st.info(f"📄 **File:** {uploaded_files[0].name} | **Size:** {uploaded_files[0].size:,} bytes")
+        else:
+            total_size = sum(file.size for file in uploaded_files)
+            st.info(f"📄 **Files:** {len(uploaded_files)} PDF files | **Total Size:** {total_size:,} bytes")
+            for file in uploaded_files:
+                st.write(f"  - {file.name} ({file.size:,} bytes)")
         
         # Extract button
         if st.button("🔍 Extract Tables", type="primary"):
-            with st.spinner("Extracting tables from PDF..."):
+            with st.spinner("Extracting tables from PDF(s)..."):
                 try:
-                    # Save uploaded file temporarily
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                        tmp_file.write(uploaded_file.getvalue())
-                        tmp_path = tmp_file.name
+                    all_tables = []
+                    processed_files = []
                     
-                    # Initialize extractor
-                    extractor = PDFTableExtractor()
+                    # Process each uploaded file
+                    for uploaded_file in uploaded_files:
+                        # Save uploaded file temporarily
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                            tmp_file.write(uploaded_file.getvalue())
+                            tmp_path = tmp_file.name
+                        
+                        try:
+                            # Initialize extractor
+                            extractor = PDFTableExtractor()
+                            
+                            # Extract tables
+                            file_tables = extractor.extract_tables_from_pdf(
+                                tmp_path, 
+                                method=extraction_method,
+                                pages=pages
+                            )
+                            
+                            # Add file information to tables
+                            for table in file_tables:
+                                table.file_name = uploaded_file.name
+                            
+                            all_tables.extend(file_tables)
+                            processed_files.append({
+                                'name': uploaded_file.name,
+                                'tables_found': len(file_tables)
+                            })
+                            
+                        finally:
+                            # Clean up temporary file
+                            os.unlink(tmp_path)
                     
-                    # Extract tables
-                    tables = extractor.extract_tables_from_pdf(
-                        tmp_path, 
-                        method=extraction_method,
-                        pages=pages
-                    )
-                    
-                    # Clean up temporary file
-                    os.unlink(tmp_path)
+                    tables = all_tables
                     
                     if tables:
-                        st.success(f"✅ Successfully extracted {len(tables)} tables!")
+                        st.success(f"✅ Successfully extracted {len(tables)} tables from {len(processed_files)} files!")
                         
                         # Display summary
                         st.subheader("📋 Extraction Summary")
                         summary = extractor.get_table_summary(tables)
                         
-                        col1, col2, col3 = st.columns(3)
+                        col1, col2, col3, col4 = st.columns(4)
                         with col1:
-                            st.metric("Total Tables", summary['total_tables'])
+                            st.metric("Files Processed", len(processed_files))
                         with col2:
+                            st.metric("Total Tables", summary['total_tables'])
+                        with col3:
                             total_rows = sum(table_info['shape'][0] for table_info in summary['tables_info'])
                             st.metric("Total Rows", total_rows)
-                        with col3:
+                        with col4:
                             total_cols = sum(table_info['shape'][1] for table_info in summary['tables_info'])
                             st.metric("Total Columns", total_cols)
                         
+                        # File processing summary
+                        st.subheader("📁 File Processing Summary")
+                        for file_info in processed_files:
+                            if 'error' in file_info:
+                                st.error(f"❌ {file_info['name']}: {file_info['error']}")
+                            else:
+                                st.success(f"✅ {file_info['name']}: {file_info['tables_found']} tables found")
+                        
+                        # Table selection for download
+                        st.subheader("📋 Select Tables to Download")
+                        
+                        # Select all/none buttons
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("Select All Tables"):
+                                st.session_state.selected_tables = list(range(len(tables)))
+                        with col2:
+                            if st.button("Deselect All Tables"):
+                                st.session_state.selected_tables = []
+                        
+                        # Initialize selected tables if not exists
+                        if 'selected_tables' not in st.session_state:
+                            st.session_state.selected_tables = list(range(len(tables)))
+                        
+                        # Table selection checkboxes
+                        selected_tables = []
+                        for i, table in enumerate(tables):
+                            file_name = getattr(table, 'file_name', 'Unknown')
+                            is_selected = st.checkbox(
+                                f"Table {i+1} (from {file_name}) - {table.shape[0]} rows × {table.shape[1]} columns",
+                                value=i in st.session_state.selected_tables,
+                                key=f"table_select_{i}"
+                            )
+                            if is_selected:
+                                selected_tables.append(i)
+                        
+                        st.session_state.selected_tables = selected_tables
+                        
+                        # Download selected tables
+                        if selected_tables:
+                            st.subheader("💾 Download Selected Tables")
+                            
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                # Download as Excel
+                                if st.button("📥 Download Selected as Excel", type="primary"):
+                                    excel_buffer = io.BytesIO()
+                                    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                                        for i, table_idx in enumerate(selected_tables):
+                                            table = tables[table_idx]
+                                            sheet_name = f'Table_{i+1}'
+                                            table.to_excel(writer, sheet_name=sheet_name, index=False)
+                                    
+                                    excel_buffer.seek(0)
+                                    st.download_button(
+                                        label="📥 Download Excel File",
+                                        data=excel_buffer.getvalue(),
+                                        file_name="selected_tables.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    )
+                            
+                            with col2:
+                                # Download as ZIP of CSV files
+                                if st.button("📥 Download Selected as ZIP (CSV files)"):
+                                    zip_buffer = io.BytesIO()
+                                    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                                        for i, table_idx in enumerate(selected_tables):
+                                            table = tables[table_idx]
+                                            csv_data = table.to_csv(index=False)
+                                            zip_file.writestr(f"table_{i+1}.csv", csv_data)
+                                    
+                                    zip_buffer.seek(0)
+                                    st.download_button(
+                                        label="📥 Download ZIP File",
+                                        data=zip_buffer.getvalue(),
+                                        file_name="selected_tables.zip",
+                                        mime="application/zip"
+                                    )
+                        else:
+                            st.warning("⚠️ Please select at least one table to download")
+                        
                         # Display each table
-                        st.subheader("📊 Extracted Tables")
+                        st.subheader("📊 Extracted Tables Preview")
                         
                         for i, table in enumerate(tables):
-                            with st.expander(f"Table {i+1} ({table.shape[0]} rows × {table.shape[1]} columns)"):
-                                st.dataframe(table, use_container_width=True)
+                            file_name = getattr(table, 'file_name', 'Unknown')
+                            with st.expander(f"Table {i+1} (from {file_name}) - {table.shape[0]} rows × {table.shape[1]} columns"):
+                                st.dataframe(table.head(10), use_container_width=True)
+                                if table.shape[0] > 10:
+                                    st.info(f"Showing first 10 rows of {table.shape[0]} total rows")
                                 
                                 # Download individual table
                                 csv = table.to_csv(index=False)
@@ -162,40 +292,6 @@ def main():
                                     mime="text/csv"
                                 )
                         
-                        # Download all tables as Excel
-                        st.subheader("💾 Download All Tables")
-                        
-                        # Create Excel file in memory
-                        excel_buffer = io.BytesIO()
-                        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                            for i, table in enumerate(tables):
-                                sheet_name = f'Table_{i+1}'
-                                table.to_excel(writer, sheet_name=sheet_name, index=False)
-                        
-                        excel_buffer.seek(0)
-                        
-                        st.download_button(
-                            label="📥 Download All Tables as Excel",
-                            data=excel_buffer.getvalue(),
-                            file_name="extracted_tables.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                        
-                        # Download all tables as ZIP of CSV files
-                        zip_buffer = io.BytesIO()
-                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                            for i, table in enumerate(tables):
-                                csv_data = table.to_csv(index=False)
-                                zip_file.writestr(f"table_{i+1}.csv", csv_data)
-                        
-                        zip_buffer.seek(0)
-                        
-                        st.download_button(
-                            label="📥 Download All Tables as ZIP (CSV files)",
-                            data=zip_buffer.getvalue(),
-                            file_name="extracted_tables.zip",
-                            mime="application/zip"
-                        )
                     
                     else:
                         st.warning("⚠️ No tables found in the PDF. Try a different extraction method or check if the PDF contains tabular data.")
@@ -223,10 +319,12 @@ def main():
         <div class="info-box">
         <h3>📖 How to Use</h3>
         <ol>
-        <li><strong>Upload a PDF file</strong> containing tabular data using the file uploader above</li>
+        <li><strong>Choose upload type</strong> - single PDF file or multiple PDF files</li>
+        <li><strong>Upload PDF file(s)</strong> containing tabular data using the file uploader above</li>
         <li><strong>Choose extraction settings</strong> in the sidebar (method, pages, etc.)</li>
-        <li><strong>Click "Extract Tables"</strong> to process the PDF</li>
-        <li><strong>View and download</strong> the extracted tables in various formats</li>
+        <li><strong>Click "Extract Tables"</strong> to process the PDF(s)</li>
+        <li><strong>Select tables to download</strong> using the checkboxes</li>
+        <li><strong>Download selected tables</strong> in Excel or CSV (ZIP) format</li>
         </ol>
         </div>
         """, unsafe_allow_html=True)
@@ -249,6 +347,7 @@ def main():
             - Individual CSV files
             - Excel workbook with multiple sheets
             - ZIP archive of CSV files
+            - Selective download (choose which tables to save)
             """)
     
     # Footer

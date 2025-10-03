@@ -282,6 +282,128 @@
             margin-bottom: 5px;
         }
 
+        .upload-options {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .upload-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .upload-option input[type="radio"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .upload-option label {
+            margin: 0;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .directory-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .table-selection {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .table-selection h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .table-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+
+        .table-checkbox input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .table-checkbox label {
+            margin: 0;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .table-preview {
+            font-size: 0.9rem;
+            color: #666;
+            margin-left: 25px;
+        }
+
+        .select-all-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .select-all-controls button {
+            padding: 8px 16px;
+            border: 1px solid #1f77b4;
+            background: white;
+            color: #1f77b4;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .select-all-controls button:hover {
+            background: #1f77b4;
+            color: white;
+        }
+
+        .download-selected {
+            margin-top: 20px;
+            padding: 15px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+        }
+
+        .download-selected button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .download-selected button:hover {
+            background: #218838;
+        }
+
+        .download-selected button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 10px;
@@ -313,21 +435,52 @@
             <div class="info-box">
                 <h3>📖 How to Use</h3>
                 <ul>
-                    <li><strong>Upload a PDF file</strong> containing tabular data</li>
+                    <li><strong>Choose upload type</strong> - single PDF, multiple PDFs, or directory</li>
+                    <li><strong>Upload PDF file(s)</strong> containing tabular data</li>
                     <li><strong>Choose extraction settings</strong> (method, pages, etc.)</li>
-                    <li><strong>Click "Extract Tables"</strong> to process the PDF</li>
-                    <li><strong>View the extracted tables</strong> in the results below</li>
+                    <li><strong>Click "Extract Tables"</strong> to process the PDF(s)</li>
+                    <li><strong>Select tables to download</strong> using the checkboxes</li>
+                    <li><strong>Download selected tables</strong> in Excel or CSV (ZIP) format</li>
                 </ul>
             </div>
 
             <div class="upload-section">
                 <form id="uploadForm" enctype="multipart/form-data">
                     <div class="form-group">
-                        <label for="file">📁 Select PDF File</label>
-                        <div class="file-input-wrapper">
+                        <label>📁 Select PDF Files or Directory</label>
+                        <div class="upload-options">
+                            <div class="upload-option">
+                                <input type="radio" id="single-file" name="upload-type" value="single" checked>
+                                <label for="single-file">Single PDF File</label>
+                            </div>
+                            <div class="upload-option">
+                                <input type="radio" id="multiple-files" name="upload-type" value="multiple">
+                                <label for="multiple-files">Multiple PDF Files</label>
+                            </div>
+                            <div class="upload-option">
+                                <input type="radio" id="directory" name="upload-type" value="directory">
+                                <label for="directory">Directory of PDFs</label>
+                            </div>
+                        </div>
+                        
+                        <div class="file-input-wrapper" id="file-input-wrapper">
                             <input type="file" id="file" name="file" class="file-input" accept=".pdf" required>
                             <label for="file" class="file-input-label">
                                 📄 Click to select PDF file or drag and drop
+                            </label>
+                        </div>
+                        
+                        <div class="file-input-wrapper" id="multiple-file-input-wrapper" style="display: none;">
+                            <input type="file" id="files" name="files" class="file-input" accept=".pdf" multiple>
+                            <label for="files" class="file-input-label">
+                                📄 Click to select multiple PDF files or drag and drop
+                            </label>
+                        </div>
+                        
+                        <div class="directory-input-wrapper" id="directory-input-wrapper" style="display: none;">
+                            <input type="file" id="directory" name="directory" class="file-input" webkitdirectory directory>
+                            <label for="directory" class="file-input-label">
+                                📁 Click to select directory containing PDF files
                             </label>
                         </div>
                     </div>
@@ -365,20 +518,75 @@
     </div>
 
     <script>
+        let currentTables = [];
+        let currentFiles = [];
+        
+        // Handle upload type changes
+        document.querySelectorAll('input[name="upload-type"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const fileInputWrapper = document.getElementById('file-input-wrapper');
+                const multipleFileInputWrapper = document.getElementById('multiple-file-input-wrapper');
+                const directoryInputWrapper = document.getElementById('directory-input-wrapper');
+                
+                // Hide all input wrappers
+                fileInputWrapper.style.display = 'none';
+                multipleFileInputWrapper.style.display = 'none';
+                directoryInputWrapper.style.display = 'none';
+                
+                // Show appropriate input wrapper
+                if (this.value === 'single') {
+                    fileInputWrapper.style.display = 'block';
+                } else if (this.value === 'multiple') {
+                    multipleFileInputWrapper.style.display = 'block';
+                } else if (this.value === 'directory') {
+                    directoryInputWrapper.style.display = 'block';
+                }
+            });
+        });
+        
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const formData = new FormData();
-            const fileInput = document.getElementById('file');
+            const uploadType = document.querySelector('input[name="upload-type"]:checked').value;
             const method = document.getElementById('method').value;
             const pages = document.getElementById('pages').value;
             
-            if (!fileInput.files[0]) {
-                alert('Please select a PDF file');
-                return;
+            let files = [];
+            
+            if (uploadType === 'single') {
+                const fileInput = document.getElementById('file');
+                if (!fileInput.files[0]) {
+                    alert('Please select a PDF file');
+                    return;
+                }
+                files = Array.from(fileInput.files);
+            } else if (uploadType === 'multiple') {
+                const filesInput = document.getElementById('files');
+                if (!filesInput.files[0]) {
+                    alert('Please select PDF files');
+                    return;
+                }
+                files = Array.from(filesInput.files);
+            } else if (uploadType === 'directory') {
+                const directoryInput = document.getElementById('directory');
+                if (!directoryInput.files[0]) {
+                    alert('Please select a directory');
+                    return;
+                }
+                files = Array.from(directoryInput.files).filter(file => file.name.toLowerCase().endsWith('.pdf'));
+                if (files.length === 0) {
+                    alert('No PDF files found in the selected directory');
+                    return;
+                }
             }
             
-            formData.append('file', fileInput.files[0]);
+            // Add files to form data
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+            
+            formData.append('upload_type', uploadType);
             formData.append('method', method);
             formData.append('pages', pages);
             
@@ -388,7 +596,7 @@
             document.getElementById('submitBtn').disabled = true;
             
             try {
-                const response = await fetch('/upload', {
+                const response = await fetch('/upload_multiple', {
                     method: 'POST',
                     body: formData
                 });
@@ -396,12 +604,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    currentTables = data.tables;
+                    currentFiles = data.files;
                     displayResults(data);
                 } else {
                     displayError(data.error);
                 }
             } catch (error) {
-                displayError('Error uploading file: ' + error.message);
+                displayError('Error uploading files: ' + error.message);
             } finally {
                 // Hide loading
                 document.getElementById('loading').style.display = 'none';
@@ -417,6 +627,10 @@
                     <h3>✅ Extraction Successful!</h3>
                     <div class="summary-stats">
                         <div class="stat">
+                            <div class="stat-number">${data.files_processed}</div>
+                            <div class="stat-label">Files Processed</div>
+                        </div>
+                        <div class="stat">
                             <div class="stat-number">${data.summary.total_tables}</div>
                             <div class="stat-label">Total Tables</div>
                         </div>
@@ -431,14 +645,55 @@
                     </div>
                 </div>
                 
+                <div class="table-selection">
+                    <h3>📋 Select Tables to Download</h3>
+                    <div class="select-all-controls">
+                        <button type="button" onclick="selectAllTables()">Select All</button>
+                        <button type="button" onclick="deselectAllTables()">Deselect All</button>
+                        <span id="selected-count">0 tables selected</span>
+                    </div>
+                    
+                    <div class="tables-container">
+            `;
+            
+            data.tables.forEach((table, index) => {
+                const fileInfo = table.file_name ? ` (from ${table.file_name})` : '';
+                html += `
+                    <div class="table-checkbox">
+                        <input type="checkbox" id="table-${index}" value="${index}" checked onchange="updateSelectedCount()">
+                        <label for="table-${index}">
+                            <strong>Table ${table.index}${fileInfo}</strong> - ${table.rows} rows × ${table.columns} columns
+                        </label>
+                    </div>
+                    <div class="table-preview">
+                        Columns: ${table.columns_list.join(', ')}
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    
+                    <div class="download-selected">
+                        <button type="button" onclick="downloadSelectedTables('excel')" id="download-excel-btn">
+                            📥 Download Selected as Excel
+                        </button>
+                        <button type="button" onclick="downloadSelectedTables('csv')" id="download-csv-btn">
+                            📥 Download Selected as CSV (ZIP)
+                        </button>
+                        <span id="download-status"></span>
+                    </div>
+                </div>
+                
                 <div class="tables-container">
             `;
             
             data.tables.forEach((table, index) => {
+                const fileInfo = table.file_name ? ` (from ${table.file_name})` : '';
                 html += `
                     <div class="table-card">
                         <div class="table-header">
-                            Table ${table.index} (${table.rows} rows × ${table.columns} columns)
+                            Table ${table.index}${fileInfo} (${table.rows} rows × ${table.columns} columns)
                         </div>
                         <div class="table-content">
                             <table class="table">
@@ -448,11 +703,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${table.data.map(row => `
+                                    ${table.data.slice(0, 10).map(row => `
                                         <tr>
                                             ${table.columns_list.map(col => `<td>${row[col] || ''}</td>`).join('')}
                                         </tr>
                                     `).join('')}
+                                    ${table.data.length > 10 ? `<tr><td colspan="${table.columns_list.length}" style="text-align: center; font-style: italic;">... and ${table.data.length - 10} more rows</td></tr>` : ''}
                                 </tbody>
                             </table>
                         </div>
@@ -463,6 +719,7 @@
             html += '</div>';
             resultsDiv.innerHTML = html;
             resultsDiv.style.display = 'block';
+            updateSelectedCount();
         }
         
         function displayError(error) {
@@ -476,11 +733,105 @@
             resultsDiv.style.display = 'block';
         }
         
-        // File input change handler
+        // File input change handlers
         document.getElementById('file').addEventListener('change', function(e) {
             const fileName = e.target.files[0]?.name || 'No file selected';
-            document.querySelector('.file-input-label').textContent = `📄 ${fileName}`;
+            document.querySelector('#file-input-wrapper .file-input-label').textContent = `📄 ${fileName}`;
         });
+        
+        document.getElementById('files').addEventListener('change', function(e) {
+            const fileCount = e.target.files.length;
+            const label = document.querySelector('#multiple-file-input-wrapper .file-input-label');
+            if (fileCount > 0) {
+                label.textContent = `📄 ${fileCount} PDF files selected`;
+            } else {
+                label.textContent = '📄 Click to select multiple PDF files or drag and drop';
+            }
+        });
+        
+        document.getElementById('directory').addEventListener('change', function(e) {
+            const pdfFiles = Array.from(e.target.files).filter(file => file.name.toLowerCase().endsWith('.pdf'));
+            const label = document.querySelector('#directory-input-wrapper .file-input-label');
+            if (pdfFiles.length > 0) {
+                label.textContent = `📁 ${pdfFiles.length} PDF files found in directory`;
+            } else {
+                label.textContent = '📁 Click to select directory containing PDF files';
+            }
+        });
+        
+        // Table selection functions
+        function selectAllTables() {
+            document.querySelectorAll('.table-checkbox input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            updateSelectedCount();
+        }
+        
+        function deselectAllTables() {
+            document.querySelectorAll('.table-checkbox input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            updateSelectedCount();
+        }
+        
+        function updateSelectedCount() {
+            const selectedCount = document.querySelectorAll('.table-checkbox input[type="checkbox"]:checked').length;
+            const totalCount = document.querySelectorAll('.table-checkbox input[type="checkbox"]').length;
+            document.getElementById('selected-count').textContent = `${selectedCount} of ${totalCount} tables selected`;
+            
+            // Enable/disable download buttons
+            const downloadExcelBtn = document.getElementById('download-excel-btn');
+            const downloadCsvBtn = document.getElementById('download-csv-btn');
+            const hasSelection = selectedCount > 0;
+            
+            if (downloadExcelBtn) downloadExcelBtn.disabled = !hasSelection;
+            if (downloadCsvBtn) downloadCsvBtn.disabled = !hasSelection;
+        }
+        
+        async function downloadSelectedTables(format) {
+            const selectedCheckboxes = document.querySelectorAll('.table-checkbox input[type="checkbox"]:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Please select at least one table to download');
+                return;
+            }
+            
+            const selectedIndices = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+            const selectedTables = selectedIndices.map(index => currentTables[index]);
+            
+            const statusSpan = document.getElementById('download-status');
+            statusSpan.textContent = 'Preparing download...';
+            
+            try {
+                const response = await fetch('/download_selected', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tables: selectedTables,
+                        format: format
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `selected_tables.${format === 'excel' ? 'xlsx' : 'zip'}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    statusSpan.textContent = 'Download completed!';
+                } else {
+                    const error = await response.json();
+                    statusSpan.textContent = `Error: ${error.error}`;
+                }
+            } catch (error) {
+                statusSpan.textContent = `Error: ${error.message}`;
+            }
+        }
     </script>
 </body>
 </html>

@@ -55,7 +55,7 @@ tables = parser.parse_pdf('document.pdf')
 # Access the first table
 if tables:
     first_table = tables[0]
-    print(f"Found table with {len(first_table.rows)} rows and {len(first_table.columns)} columns")
+    print(f"Found table with {first_table.row_count} rows and {first_table.column_count} columns")
     
     # Convert to CSV
     first_table.to_csv('output.csv')
@@ -68,6 +68,8 @@ if tables:
 ## Usage Examples
 
 ### Basic Table Extraction
+
+See `examples/basic_usage.py` for a complete example:
 
 ```python
 from pdf_parse import PDFParser
@@ -83,6 +85,8 @@ for i, table in enumerate(tables):
 
 ### Advanced Configuration
 
+See `examples/advanced_usage.py` for advanced usage:
+
 ```python
 from pdf_parse import PDFParser, ParseConfig
 
@@ -90,11 +94,30 @@ from pdf_parse import PDFParser, ParseConfig
 config = ParseConfig(
     min_table_size=3,  # Minimum rows/columns for a valid table
     merge_cells=True,  # Merge spanned cells
-    preserve_formatting=True  # Keep original formatting
+    preserve_formatting=True,  # Keep original formatting
+    page_range=(1, 5)  # Parse only pages 1-5
 )
 
 parser = PDFParser(config=config)
 tables = parser.parse_pdf('complex_document.pdf')
+```
+
+### Command Line Interface
+
+PDF Parse also includes a command-line interface:
+
+```bash
+# Extract tables from a PDF
+pdf-parse document.pdf
+
+# Export to CSV
+pdf-parse document.pdf -o output.csv -f csv
+
+# Parse specific pages
+pdf-parse document.pdf -p 1-3
+
+# Export specific table
+pdf-parse document.pdf -t 2 -f json -o table2.json
 ```
 
 ### Batch Processing
@@ -169,6 +192,16 @@ We welcome contributions to PDF Parse! Here's how you can help:
 5. Install dependencies: `pip install -r requirements.txt`
 6. Install in development mode: `pip install -e .`
 
+### Running Examples
+
+```bash
+# Run basic usage example
+python examples/basic_usage.py
+
+# Run advanced usage example  
+python examples/advanced_usage.py
+```
+
 ### Making Changes
 
 1. Create a feature branch: `git checkout -b feature/your-feature-name`
@@ -189,6 +222,28 @@ If you find a bug or have a feature request, please:
 3. Include sample PDF files if reporting parsing issues
 4. Provide Python version and operating system information
 
+## Project Structure
+
+```
+pdf-parse/
+├── pdf_parse/           # Main package
+│   ├── __init__.py      # Package initialization
+│   ├── parser.py         # Main PDFParser class
+│   ├── table.py          # Table class for data representation
+│   ├── config.py         # ParseConfig class for options
+│   └── cli.py            # Command-line interface
+├── tests/               # Test suite
+│   ├── test_parser.py    # Tests for PDFParser
+│   └── test_table.py     # Tests for Table class
+├── examples/            # Usage examples
+│   ├── basic_usage.py    # Basic usage example
+│   └── advanced_usage.py  # Advanced usage example
+├── requirements.txt      # Python dependencies
+├── setup.py             # Package installation script
+├── README.md            # This file
+└── LICENSE              # GPL v3.0 license
+```
+
 ## Testing
 
 Run the test suite:
@@ -202,6 +257,9 @@ python -m pytest --cov=pdf_parse
 
 # Run specific test file
 python -m pytest tests/test_parser.py
+
+# Run tests with verbose output
+python -m pytest -v
 ```
 
 ## License

@@ -268,7 +268,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Acknowledgments
 
-- Built with [PyPDF2](https://github.com/py-pdf/PyPDF2) for PDF processing
+- Built with [pypdf](https://github.com/py-pdf/pypdf) for PDF processing
 - Inspired by the need for reliable PDF table extraction
 - Thanks to all contributors who help improve this project
 

@@ -11,6 +11,7 @@ import os
 
 from pdf_types import RulesRegistry
 from pdf_types.pipeline import extract_and_process
+from java_check import JAVA_AVAILABLE, JAVA_VERSION
 
 
 def main():
@@ -46,7 +47,7 @@ Examples:
     
     parser.add_argument(
         '--method',
-        choices=['auto', 'pdfplumber', 'tabula', 'camelot'],
+        choices=['auto', 'pdfplumber', 'camelot'] + (['tabula'] if JAVA_AVAILABLE else []),
         default='auto',
         help='Extraction method to use (default: auto)'
     )
@@ -116,6 +117,10 @@ Examples:
     try:
         print(f"Extracting tables from {pdf_path.name}...")
         print(f"Method: {args.method}")
+        if not JAVA_AVAILABLE and args.method == 'tabula':
+            print(f"Warning: Tabula requires Java runtime. Java not detected.")
+            print(f"Available methods: pdfplumber, camelot")
+            sys.exit(1)
         if pages:
             print(f"Pages: {pages}")
         print()

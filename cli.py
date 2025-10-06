@@ -7,6 +7,10 @@ import sys
 from pathlib import Path
 from pdf_table_extractor import PDFTableExtractor
 import json
+import os
+
+from pdf_types import RulesRegistry
+from pdf_types.pipeline import extract_and_process
 
 
 def main():
@@ -67,6 +71,19 @@ Examples:
         action='store_true',
         help='Display summary information about extracted tables'
     )
+    parser.add_argument(
+        '--pdf-type',
+        help='Apply type-specific selection and transforms (name in rules directory)'
+    )
+    parser.add_argument(
+        '--detect-type',
+        action='store_true',
+        help='Auto-detect PDF type using filename patterns in rules directory'
+    )
+    parser.add_argument(
+        '--rules',
+        help='Path to rules directory (default: ./rules or PDF_PARSE_RULES_PATH)'
+    )
     
     parser.add_argument(
         '--verbose',
@@ -91,8 +108,10 @@ Examples:
             print("Error: Invalid page numbers. Use comma-separated integers (e.g., 1,3,5)")
             sys.exit(1)
     
-    # Initialize extractor
+    # Initialize extractor and registry
     extractor = PDFTableExtractor()
+    rules_dir = Path(args.rules) if args.rules else Path(os.environ.get('PDF_PARSE_RULES_PATH') or 'rules')
+    registry = RulesRegistry(rules_dir)
     
     try:
         print(f"Extracting tables from {pdf_path.name}...")
@@ -102,11 +121,24 @@ Examples:
         print()
         
         # Extract tables
-        tables = extractor.extract_tables_from_pdf(
-            pdf_path,
-            method=args.method,
-            pages=pages
-        )
+        chosen_type = args.pdf_type
+        if args.detect_type and not chosen_type:
+            chosen_type = registry.detect_type(pdf_path)
+
+        if chosen_type:
+            rules = registry.load_type(chosen_type)
+            tables, _meta = extract_and_process(
+                pdf_path,
+                method=args.method,
+                pages=pages,
+                rules=rules,
+            )
+        else:
+            tables = extractor.extract_tables_from_pdf(
+                pdf_path,
+                method=args.method,
+                pages=pages
+            )
         
         if not tables:
             print("No tables found in the PDF.")

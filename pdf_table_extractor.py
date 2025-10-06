@@ -4,7 +4,7 @@ A comprehensive tool for extracting tabular data from PDF documents and loading 
 """
 
 import pandas as pd
-import PyPDF2
+import pypdf
 import pdfplumber
 import tabula
 import camelot
@@ -87,7 +87,9 @@ class PDFTableExtractor:
                 continue
         
         # Remove duplicates and return unique tables
-        return self._remove_duplicate_tables(all_tables)
+        deduplicated = self._remove_duplicate_tables(all_tables)
+        logger.info(f"Removed {len(all_tables) - len(deduplicated)} duplicate tables")
+        return deduplicated
     
     def _extract_with_pdfplumber(self, pdf_path: Path, pages: Optional[Union[int, List[int]]]) -> List[pd.DataFrame]:
         """Extract tables using pdfplumber."""

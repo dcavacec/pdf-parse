@@ -18,7 +18,7 @@ from pathlib import Path
 import sys
 from typing import List
 
-from PyPDF2 import PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 
 def parse_pages(pages_arg: str) -> List[int]:

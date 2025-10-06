@@ -22,7 +22,9 @@ def extract_and_process(
     raw_tables = extractor.extract_tables_from_pdf(pdf_path, method=method, pages=pages)
 
     if not rules:
-        return raw_tables, {"selected": len(raw_tables), "raw": len(raw_tables)}
+        # Apply deduplication by default even without rules
+        deduplicated = _remove_duplicate_tables(raw_tables)
+        return deduplicated, {"selected": len(deduplicated), "raw": len(raw_tables)}
 
     # Selection overrides from rules.selection/extraction
     sel_method = (rules.selection or {}).get("method", method)
@@ -36,12 +38,34 @@ def extract_and_process(
         out = apply_transforms(df, rules.transforms or [])
         processed.append(out)
 
+    # Apply deduplication to processed tables
+    deduplicated = _remove_duplicate_tables(processed)
+
     meta = {
         "raw": len(raw_tables),
         "selected": len(selected),
         "processed": len(processed),
+        "deduplicated": len(deduplicated),
         "type": rules.name,
     }
-    return processed, meta
+    return deduplicated, meta
+
+
+def _remove_duplicate_tables(tables: List[pd.DataFrame]) -> List[pd.DataFrame]:
+    """Remove duplicate tables based on shape and content."""
+    unique_tables = []
+    
+    for table in tables:
+        is_duplicate = False
+        for existing_table in unique_tables:
+            if (table.shape == existing_table.shape and 
+                table.equals(existing_table)):
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            unique_tables.append(table)
+    
+    return unique_tables
 
 

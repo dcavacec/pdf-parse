@@ -1,0 +1,32 @@
+name: financial_summary
+version: "1.0"
+description: Sample rules for financial summary PDFs.
+
+selection:
+  filename_patterns: ["*financial*summary*.pdf", "*financials*.pdf"]
+  method: auto
+  pages: null
+
+extraction:
+  header_contains: ["Metric", "Revenue", "Expenses", "Net", "ROI"]
+  min_match: 0.4
+  min_shape:
+    rows: 2
+    cols: 2
+
+transforms:
+  - op: normalize_values
+    strip: true
+  - op: rename_columns
+    mapping:
+      "Change (%)": "ChangePct"
+  - op: cast_columns
+    types:
+      Revenue: number
+      Expenses: number
+      Net Profit: number
+      ChangePct: string
+
+output:
+  sheet_prefix: "Financial"
+

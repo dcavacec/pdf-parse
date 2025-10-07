@@ -4,15 +4,22 @@ A comprehensive tool for extracting tabular data from PDF documents and loading 
 """
 
 import pandas as pd
-import PyPDF2
+import pypdf
 import pdfplumber
-import tabula
 import camelot
 import numpy as np
 from typing import List, Dict, Optional, Union
 import logging
 import warnings
 from pathlib import Path
+
+# Conditional import based on Java availability
+from java_check import JAVA_AVAILABLE, JAVA_VERSION
+
+if JAVA_AVAILABLE:
+    import tabula
+else:
+    tabula = None
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -30,7 +37,13 @@ class PDFTableExtractor:
     
     def __init__(self):
         self.extracted_tables = []
-        self.extraction_methods = ['pdfplumber', 'tabula', 'camelot']
+        # Only include tabula if Java is available
+        if JAVA_AVAILABLE:
+            self.extraction_methods = ['pdfplumber', 'tabula', 'camelot']
+            logger.info(f"Java detected ({JAVA_VERSION}), Tabula extraction enabled")
+        else:
+            self.extraction_methods = ['pdfplumber', 'camelot']
+            logger.warning("Java not detected, Tabula extraction disabled")
     
     def extract_tables_from_pdf(self, pdf_path: Union[str, Path], 
                                method: str = 'auto',
@@ -58,6 +71,8 @@ class PDFTableExtractor:
         elif method == 'pdfplumber':
             return self._extract_with_pdfplumber(pdf_path, pages)
         elif method == 'tabula':
+            if not JAVA_AVAILABLE:
+                raise ValueError("Tabula extraction requires Java runtime. Install Java and try again.")
             return self._extract_with_tabula(pdf_path, pages)
         elif method == 'camelot':
             return self._extract_with_camelot(pdf_path, pages)
@@ -74,7 +89,11 @@ class PDFTableExtractor:
                 if method == 'pdfplumber':
                     tables = self._extract_with_pdfplumber(pdf_path, pages)
                 elif method == 'tabula':
-                    tables = self._extract_with_tabula(pdf_path, pages)
+                    if JAVA_AVAILABLE:
+                        tables = self._extract_with_tabula(pdf_path, pages)
+                    else:
+                        logger.warning("Skipping Tabula extraction - Java not available")
+                        continue
                 elif method == 'camelot':
                     tables = self._extract_with_camelot(pdf_path, pages)
                 
@@ -87,38 +106,52 @@ class PDFTableExtractor:
                 continue
         
         # Remove duplicates and return unique tables
-        return self._remove_duplicate_tables(all_tables)
+        deduplicated = self._remove_duplicate_tables(all_tables)
+        logger.info(f"Removed {len(all_tables) - len(deduplicated)} duplicate tables")
+        return deduplicated
     
     def _extract_with_pdfplumber(self, pdf_path: Path, pages: Optional[Union[int, List[int]]]) -> List[pd.DataFrame]:
         """Extract tables using pdfplumber."""
         tables = []
         
-        with pdfplumber.open(pdf_path) as pdf:
-            if pages is None:
-                pages_to_process = range(len(pdf.pages))
-            elif isinstance(pages, int):
-                pages_to_process = [pages - 1]  # Convert to 0-based indexing
-            else:
-                pages_to_process = [p - 1 for p in pages]  # Convert to 0-based indexing
-            
-            for page_num in pages_to_process:
-                if page_num >= len(pdf.pages):
-                    continue
-                    
-                page = pdf.pages[page_num]
-                page_tables = page.extract_tables()
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                if pages is None:
+                    pages_to_process = range(len(pdf.pages))
+                elif isinstance(pages, int):
+                    pages_to_process = [pages - 1]  # Convert to 0-based indexing
+                else:
+                    pages_to_process = [p - 1 for p in pages]  # Convert to 0-based indexing
                 
-                for table in page_tables:
-                    if table and len(table) > 1:  # Ensure table has data
-                        df = pd.DataFrame(table[1:], columns=table[0])
-                        df = self._clean_dataframe(df)
-                        if not df.empty:
-                            tables.append(df)
+                for page_num in pages_to_process:
+                    if page_num >= len(pdf.pages):
+                        continue
+                        
+                    page = pdf.pages[page_num]
+                    page_tables = page.extract_tables()
+                    
+                    for table in page_tables:
+                        if table and len(table) > 1:  # Ensure table has data
+                            try:
+                                df = pd.DataFrame(table[1:], columns=table[0])
+                                df = self._clean_dataframe(df)
+                                if not df.empty:
+                                    tables.append(df)
+                            except Exception as e:
+                                logger.warning(f"Failed to process table on page {page_num + 1}: {str(e)}")
+                                continue
+        except Exception as e:
+            logger.warning(f"PDFPlumber extraction failed: {str(e)}")
+            return []
         
         return tables
     
     def _extract_with_tabula(self, pdf_path: Path, pages: Optional[Union[int, List[int]]]) -> List[pd.DataFrame]:
         """Extract tables using tabula-py."""
+        if not JAVA_AVAILABLE:
+            logger.warning("Tabula extraction skipped - Java not available")
+            return []
+        
         try:
             if pages is None:
                 tables = tabula.read_pdf(str(pdf_path), pages='all', multiple_tables=True)
@@ -142,13 +175,14 @@ class PDFTableExtractor:
     def _extract_with_camelot(self, pdf_path: Path, pages: Optional[Union[int, List[int]]]) -> List[pd.DataFrame]:
         """Extract tables using camelot."""
         try:
+            # Use flavor='stream' to avoid temp file permission issues
             if pages is None:
-                tables = camelot.read_pdf(str(pdf_path), pages='all')
+                tables = camelot.read_pdf(str(pdf_path), pages='all', flavor='stream')
             elif isinstance(pages, int):
-                tables = camelot.read_pdf(str(pdf_path), pages=str(pages))
+                tables = camelot.read_pdf(str(pdf_path), pages=str(pages), flavor='stream')
             else:
                 pages_str = ','.join(map(str, pages))
-                tables = camelot.read_pdf(str(pdf_path), pages=pages_str)
+                tables = camelot.read_pdf(str(pdf_path), pages=pages_str, flavor='stream')
             
             cleaned_tables = []
             for table in tables:
@@ -181,8 +215,20 @@ class PDFTableExtractor:
         
         # Convert all columns to string and strip whitespace
         for col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
-            df[col] = df[col].replace('nan', '')
+            try:
+                # First convert everything to string
+                df[col] = df[col].astype(str)
+                # Then apply string operations
+                df[col] = df[col].str.strip()
+                # Replace string representations of NaN
+                df[col] = df[col].replace(['nan', 'None', 'NaN'], '')
+            except Exception as e:
+                # If str access fails, use apply method
+                try:
+                    df[col] = df[col].apply(lambda x: str(x).strip() if pd.notna(x) and str(x) not in ['nan', 'None', 'NaN'] else '')
+                except Exception:
+                    # Last resort: convert to string and clean manually
+                    df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) else '')
         
         return df
     

@@ -1,0 +1,35 @@
+name: financial_metrics_only
+version: "1.0"
+description: Extract only key financial metrics, excluding detailed breakdowns.
+
+selection:
+  filename_patterns: ["*financial*.pdf", "*revenue*.pdf", "*profit*.pdf"]
+  method: auto
+  pages: null
+
+extraction:
+  header_contains: ["Metric", "Revenue", "Expenses", "Net Profit", "ROI"]
+  min_match: 0.5
+  min_shape:
+    rows: 2
+    cols: 3
+
+transforms:
+  - op: normalize_values
+    strip: true
+  - op: select_fields
+    fields: ["Metric", "2021", "2022", "2023", "Change (%)"]
+    allow_missing: false
+  - op: filter_by_field_values
+    field: "Metric"
+    values: ["Revenue", "Net Profit", "ROI"]
+    keep: true
+  - op: cast_columns
+    types:
+      "2021": number
+      "2022": number
+      "2023": number
+      "Change (%)": string
+
+output:
+  sheet_prefix: "FinancialMetrics"

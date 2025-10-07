@@ -1,0 +1,37 @@
+name: employee_focus
+version: "1.0"
+description: Focus on employee data only, filtering by department and position.
+
+selection:
+  filename_patterns: ["*employee*.pdf", "*staff*.pdf", "*personnel*.pdf"]
+  method: auto
+  pages: null
+
+extraction:
+  header_contains: ["Employee ID", "Name", "Department", "Position", "Salary"]
+  min_match: 0.6
+  min_shape:
+    rows: 2
+    cols: 4
+
+transforms:
+  - op: normalize_values
+    strip: true
+  - op: select_fields
+    fields: ["Employee ID", "Name", "Department", "Position", "Salary", "Start Date"]
+    allow_missing: true
+  - op: filter_by_field_values
+    field: "Department"
+    values: ["Engineering", "Marketing", "Sales"]
+    keep: true
+  - op: filter_by_field_values
+    field: "Position"
+    values: ["Senior Developer", "Marketing Manager", "Sales Representative"]
+    keep: true
+  - op: cast_columns
+    types:
+      Salary: number
+      "Start Date": date
+
+output:
+  sheet_prefix: "Employees"

@@ -87,6 +87,11 @@ python3 cli.py sample_tables.pdf --output tables.xlsx
 
 # Get summary
 python3 cli.py sample_tables.pdf --summary --verbose
+# With type rules
+python3 cli.py sample_tables.pdf --pdf-type rural_adj --rules ./rules
+
+# Auto-detect type (by filename patterns in rules)
+python3 cli.py sample_tables.pdf --detect-type --rules ./rules
 ```
 
 ## 📁 Project Structure

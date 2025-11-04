@@ -9,6 +9,10 @@ cffi==2.0.0
 chardet==5.2.0
 charset-normalizer==3.4.3
 click==8.3.0
+<<<<<<< Updated upstream
+=======
+colorama==0.4.6
+>>>>>>> Stashed changes
 coverage==7.10.7
 cryptography==46.0.2
 distro==1.9.0
@@ -33,6 +37,10 @@ openpyxl==3.1.5
 packaging==25.0
 pandas==2.3.3
 pathspec==0.12.1
+<<<<<<< Updated upstream
+=======
+pdf2image==1.17.0
+>>>>>>> Stashed changes
 pdfminer.six==20250506
 pdfplumber==0.11.7
 pillow==11.3.0
@@ -46,7 +54,13 @@ pydeck==0.9.1
 pyflakes==3.4.0
 Pygments==2.19.2
 pypdf==5.9.0
+<<<<<<< Updated upstream
 pypdfium2==4.30.0
+=======
+PyPDF2==3.0.1
+pypdfium2==4.30.0
+pytesseract==0.3.13
+>>>>>>> Stashed changes
 pytest==8.4.2
 pytest-cov==7.0.0
 python-dateutil==2.9.0.post0
@@ -56,7 +70,10 @@ PyYAML==6.0.3
 referencing==0.36.2
 requests==2.32.5
 rpds-py==0.27.1
+<<<<<<< Updated upstream
 setuptools==80.9.0
+=======
+>>>>>>> Stashed changes
 six==1.17.0
 smmap==5.0.2
 streamlit==1.50.0

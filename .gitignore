@@ -209,4 +209,6 @@ __marimo__/
 # data
 *.csv
 *.xlsx
-data/** 
+data/**
+*.json
+.vscode/**
